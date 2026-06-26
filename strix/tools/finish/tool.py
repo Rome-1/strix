@@ -10,9 +10,12 @@ from typing import Any
 from agents import RunContextWrapper, function_tool
 
 from strix.core.agents import coordinator_from_context
+from strix.report.state import get_global_report_state
 
 
 logger = logging.getLogger(__name__)
+
+_MISSING_FIELD_PLACEHOLDER = "[Not provided by model]"
 
 
 def _do_finish(
@@ -32,21 +35,18 @@ def _do_finish(
             ),
         }
 
-    errors: list[str] = []
-    if not executive_summary.strip():
-        errors.append("Executive summary cannot be empty")
-    if not methodology.strip():
-        errors.append("Methodology cannot be empty")
-    if not technical_analysis.strip():
-        errors.append("Technical analysis cannot be empty")
-    if not recommendations.strip():
-        errors.append("Recommendations cannot be empty")
-    if errors:
-        return {"success": False, "error": "Validation failed", "errors": errors}
+    def _coerce(field_name: str, value: str) -> str:
+        if value.strip():
+            return value.strip()
+        logger.warning("finish_scan: %s was empty; substituting placeholder", field_name)
+        return _MISSING_FIELD_PLACEHOLDER
+
+    executive_summary = _coerce("executive_summary", executive_summary)
+    methodology = _coerce("methodology", methodology)
+    technical_analysis = _coerce("technical_analysis", technical_analysis)
+    recommendations = _coerce("recommendations", recommendations)
 
     try:
-        from strix.report.state import get_global_report_state
-
         report_state = get_global_report_state()
         if report_state is None:
             logger.warning("No global report state; scan results not persisted")

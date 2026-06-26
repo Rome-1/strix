@@ -37,6 +37,11 @@ class LlmSettings(BaseSettings):
     )
     reasoning_effort: ReasoningEffort = Field(default="high", alias="STRIX_REASONING_EFFORT")
     timeout: int = Field(default=300, alias="LLM_TIMEOUT")
+    temperature: float | None = Field(default=None, alias="LLM_TEMPERATURE")
+    top_p: float | None = Field(default=None, alias="LLM_TOP_P")
+    max_tokens: int | None = Field(default=None, alias="LLM_MAX_TOKENS")
+    presence_penalty: float | None = Field(default=None, alias="LLM_PRESENCE_PENALTY")
+    frequency_penalty: float | None = Field(default=None, alias="LLM_FREQUENCY_PENALTY")
 
 
 class RuntimeSettings(BaseSettings):

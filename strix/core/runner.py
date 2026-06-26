@@ -157,6 +157,11 @@ async def run_strix_scan(
         model_settings = make_model_settings(
             settings.llm.reasoning_effort,
             model_name=resolved_model,
+            temperature=settings.llm.temperature,
+            top_p=settings.llm.top_p,
+            max_tokens=settings.llm.max_tokens,
+            presence_penalty=settings.llm.presence_penalty,
+            frequency_penalty=settings.llm.frequency_penalty,
         )
         run_config = RunConfig(
             model=resolved_model,

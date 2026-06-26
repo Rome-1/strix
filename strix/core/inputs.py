@@ -111,11 +111,26 @@ def make_model_settings(
     reasoning_effort: ReasoningEffort | None,
     *,
     model_name: str,
+    temperature: float | None = None,
+    top_p: float | None = None,
+    max_tokens: int | None = None,
+    presence_penalty: float | None = None,
+    frequency_penalty: float | None = None,
 ) -> ModelSettings:
+    """Build the ModelSettings for a scan run.
+
+    Generation params default to ``None`` (provider defaults). ``litellm``'s
+    ``drop_params=True`` strips any param the target model does not support.
+    """
     model_settings = ModelSettings(
         parallel_tool_calls=False,
         retry=DEFAULT_MODEL_RETRY,
         include_usage=True,
+        temperature=temperature,
+        top_p=top_p,
+        max_tokens=max_tokens,
+        presence_penalty=presence_penalty,
+        frequency_penalty=frequency_penalty,
     )
     if (
         reasoning_effort is not None

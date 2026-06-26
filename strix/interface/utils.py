@@ -1447,29 +1447,68 @@ def clone_repository(repo_url: str, run_name: str, dest_name: str | None = None)
         sys.exit(1)
 
 
-def check_docker_connection() -> Any:
-    try:
-        return docker.from_env()
-    except DockerException:
-        console = Console()
-        error_text = Text()
-        error_text.append("DOCKER NOT AVAILABLE", style="bold red")
-        error_text.append("\n\n", style="white")
-        error_text.append("Cannot connect to Docker daemon.\n", style="white")
+def _macos_docker_socket_candidates() -> list[Path]:
+    """Return likely Docker Desktop / OrbStack socket paths on macOS."""
+    home = Path.home()
+    return [
+        home / ".docker" / "run" / "docker.sock",
+        home / "Library" / "Containers" / "com.docker.docker" / "Data" / "docker.raw.sock",
+    ]
+
+
+def _raise_docker_unavailable() -> None:
+    """Print an OS-aware "Docker not available" panel and raise RuntimeError."""
+    console = Console()
+    error_text = Text()
+    error_text.append("DOCKER NOT AVAILABLE", style="bold red")
+    error_text.append("\n\n", style="white")
+    error_text.append("Cannot connect to Docker daemon.\n", style="white")
+    if sys.platform == "darwin":
         error_text.append(
-            "Please ensure Docker Desktop is installed and running, and try running strix again.\n",
+            "Please ensure Docker Desktop is running (e.g. `open -a Docker`), "
+            "and try running strix again.\n",
+            style="white",
+        )
+    else:
+        error_text.append(
+            "Please ensure the Docker daemon is running "
+            "(e.g. `sudo systemctl start docker`), and try running strix again.\n",
             style="white",
         )
 
-        panel = Panel(
-            error_text,
-            title="[bold white]STRIX",
-            title_align="left",
-            border_style="red",
-            padding=(1, 2),
-        )
-        console.print("\n", panel, "\n")
-        raise RuntimeError("Docker not available") from None
+    panel = Panel(
+        error_text,
+        title="[bold white]STRIX",
+        title_align="left",
+        border_style="red",
+        padding=(1, 2),
+    )
+    console.print("\n", panel, "\n")
+    raise RuntimeError("Docker not available") from None
+
+
+def check_docker_connection() -> Any:
+    """Return a connected Docker client.
+
+    Falls back to macOS-specific Docker Desktop / OrbStack socket paths when
+    ``DOCKER_HOST`` is unset and the default Linux-style socket is missing.
+    """
+    try:
+        return docker.from_env()
+    except DockerException:
+        if sys.platform == "darwin":
+            for sock in _macos_docker_socket_candidates():
+                if not sock.exists():
+                    continue
+                try:
+                    client = docker.DockerClient(base_url=f"unix://{sock}")
+                    client.ping()
+                except DockerException:
+                    continue
+                else:
+                    return client
+        _raise_docker_unavailable()
+        return None
 
 
 def image_exists(client: Any, image_name: str) -> bool:

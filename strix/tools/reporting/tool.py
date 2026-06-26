@@ -167,6 +167,7 @@ async def _do_create(  # noqa: PLR0912
     cve: str | None,
     cwe: str | None,
     code_locations: list[dict[str, Any]] | None,
+    is_whitebox: bool = False,
     agent_id: str | None = None,
     agent_name: str | None = None,
 ) -> dict[str, Any]:
@@ -195,6 +196,11 @@ async def _do_create(  # noqa: PLR0912
                 errors.append(f"Invalid {name}: {value}. Must be one of: {valid}")
 
     parsed_locations = _normalize_code_locations(code_locations)
+    if not is_whitebox:
+        # Black-box scans have no source tree, so any code_locations the LLM
+        # supplies are fabricated. Strip them silently rather than persisting
+        # non-existent file paths and line numbers.
+        parsed_locations = None
     if parsed_locations:
         errors.extend(_validate_code_locations(parsed_locations))
     if cve:
@@ -420,6 +426,10 @@ async def create_vulnerability_report(
         cve: ``CVE-YYYY-NNNNN`` if certain, else omit.
         cwe: ``CWE-NNN`` (most specific child) if certain, else omit.
         code_locations: White-box findings — list of location objects.
+            **Only valid when source code is available.** In black-box
+            scans (no source tree) there are no real file paths or line
+            numbers to cite; any entries supplied are dropped before the
+            report is persisted, so do NOT fabricate them.
 
             **How ``fix_before`` / ``fix_after`` work**: they're used as
             literal GitHub/GitLab PR suggestion blocks. When a reviewer
@@ -484,6 +494,7 @@ async def create_vulnerability_report(
             - Duplicating the same change across multiple locations.
     """
     inner = ctx.context if isinstance(ctx.context, dict) else {}
+    is_whitebox = bool(inner.get("is_whitebox", False))
     raw_agent_id = inner.get("agent_id")
     agent_id = raw_agent_id if isinstance(raw_agent_id, str) else None
     agent_name = None
@@ -509,6 +520,7 @@ async def create_vulnerability_report(
         cve=cve,
         cwe=cwe,
         code_locations=code_locations,
+        is_whitebox=is_whitebox,
         agent_id=agent_id,
         agent_name=agent_name,
     )
